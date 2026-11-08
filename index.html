@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Urbana Store</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="top">
+  <h1 class="logo">URBANA STORE</h1>
+  <input id="buscar" type="search" placeholder="Buscar productos" aria-label="Buscar productos">
+  <a class="btn-carrito" href="#carrito">Carrito (<span id="contador">0</span>)</a>
+</header>
+
+<main class="layout">
+  <aside class="filtros">
+    <h2>Filtros</h2>
+    <label for="categoria">Categoría</label>
+    <select id="categoria">
+      <option value="todas">Todas</option>
+      <option value="Polerones">Polerones</option>
+      <option value="Poleras">Poleras</option>
+      <option value="Pantalones">Pantalones</option>
+    </select>
+    <label for="precio">Precio</label>
+    <select id="precio">
+      <option value="todos">Todos</option>
+      <option value="20">Hasta $20.000</option>
+      <option value="40">$20.000 a $40.000</option>
+    </select>
+  </aside>
+
+  <section aria-labelledby="t-catalogo">
+    <h2 id="t-catalogo">Catálogo</h2>
+    <div id="catalogo" class="grid"></div>
+    <p id="vacio" class="vacio" hidden>No hay productos con esos filtros. Prueba con otra búsqueda.</p>
+  </section>
+
+  <section id="carrito" class="panel" aria-labelledby="t-carrito">
+    <h2 id="t-carrito">Carrito de compras</h2>
+    <ul id="lista" class="lista"></ul>
+    <p id="carrito-vacio" class="vacio">Tu carrito está vacío. Agrega un producto del catálogo.</p>
+    <dl class="resumen">
+      <div><dt>Subtotal</dt><dd id="subtotal">$0</dd></div>
+      <div><dt>Despacho</dt><dd id="despacho">$0</dd></div>
+      <div class="total"><dt>Total</dt><dd id="total">$0</dd></div>
+    </dl>
+
+    <h2>Datos de despacho</h2>
+    <form id="checkout">
+      <label for="nombre">Nombre completo</label>
+      <input id="nombre" required>
+      <label for="direccion">Dirección</label>
+      <input id="direccion" required>
+      <label for="comuna">Comuna</label>
+      <input id="comuna" required>
+      <label for="telefono">Teléfono</label>
+      <input id="telefono" type="tel" required>
+      <fieldset>
+        <legend>Método de pago</legend>
+        <label class="radio"><input type="radio" name="pago" checked> Tarjeta de crédito o débito</label>
+        <label class="radio"><input type="radio" name="pago"> Transferencia bancaria</label>
+      </fieldset>
+      <button class="btn" type="submit">Pagar ahora</button>
+      <p id="mensaje" class="mensaje" role="status" hidden></p>
+    </form>
+  </section>
+</main>
+
+<script>
+const productos = [
+  {id:1, nombre:"Polerón oversize", cat:"Polerones", precio:29990},
+  {id:2, nombre:"Polera básica", cat:"Poleras", precio:12990},
+  {id:3, nombre:"Jeans recto", cat:"Pantalones", precio:34990},
+  {id:4, nombre:"Polerón canguro", cat:"Polerones", precio:27990},
+  {id:5, nombre:"Polera estampada", cat:"Poleras", precio:14990},
+  {id:6, nombre:"Pantalón cargo", cat:"Pantalones", precio:32990}
+];
+let carrito = [];
+const $ = id => document.getElementById(id);
+const clp = n => "$" + n.toLocaleString("es-CL");
+
+function pintarCatalogo() {
+  const q = $("buscar").value.toLowerCase();
+  const cat = $("categoria").value, pr = $("precio").value;
+  const lista = productos.filter(p =>
+    p.nombre.toLowerCase().includes(q) &&
+    (cat === "todas" || p.cat === cat) &&
+    (pr === "todos" || (pr === "20" ? p.precio <= 20000 : p.precio > 20000 && p.precio <= 40000)));
+  $("catalogo").innerHTML = lista.map(p => `
+    <article class="card">
+      <div class="img" role="img" aria-label="Imagen de ${p.nombre}">${p.cat}</div>
+      <h3>${p.nombre}</h3>
+      <p class="precio">${clp(p.precio)}</p>
+      <label for="t${p.id}">Talla</label>
+      <select id="t${p.id}"><option>S</option><option>M</option><option>L</option><option>XL</option></select>
+      <button class="btn" onclick="agregar(${p.id})">Agregar al carrito</button>
+    </article>`).join("");
+  $("vacio").hidden = lista.length > 0;
+}
+
+function agregar(id) {
+  const talla = $("t" + id).value;
+  const item = carrito.find(i => i.id === id && i.talla === talla);
+  item ? item.cant++ : carrito.push({id, talla, cant:1});
+  pintarCarrito();
+}
+function cambiar(i, d) {
+  carrito[i].cant += d;
+  if (carrito[i].cant < 1) carrito.splice(i, 1);
+  pintarCarrito();
+}
+function quitar(i) { carrito.splice(i, 1); pintarCarrito(); }
+
+function pintarCarrito() {
+  $("lista").innerHTML = carrito.map((it, i) => {
+    const p = productos.find(x => x.id === it.id);
+    return `<li>
+      <div><strong>${p.nombre}</strong><br><small>Talla ${it.talla} · ${clp(p.precio)}</small></div>
+      <div class="cant">
+        <button aria-label="Quitar uno" onclick="cambiar(${i},-1)">-</button>
+        <span>${it.cant}</span>
+        <button aria-label="Agregar uno" onclick="cambiar(${i},1)">+</button>
+      </div>
+      <button class="eliminar" onclick="quitar(${i})">Eliminar</button>
+    </li>`;
+  }).join("");
+  const sub = carrito.reduce((s, it) => s + productos.find(x => x.id === it.id).precio * it.cant, 0);
+  const desp = carrito.length ? 3990 : 0;
+  $("subtotal").textContent = clp(sub);
+  $("despacho").textContent = clp(desp);
+  $("total").textContent = clp(sub + desp);
+  $("contador").textContent = carrito.reduce((s, it) => s + it.cant, 0);
+  $("carrito-vacio").hidden = carrito.length > 0;
+}
+
+$("checkout").addEventListener("submit", e => {
+  e.preventDefault();
+  const m = $("mensaje");
+  m.hidden = false;
+  if (!carrito.length) { m.textContent = "Agrega al menos un producto antes de pagar."; m.className = "mensaje error"; return; }
+  m.textContent = "Pedido confirmado. Te enviaremos el estado de tu compra por correo.";
+  m.className = "mensaje ok";
+  carrito = []; pintarCarrito(); e.target.reset();
+});
+["buscar", "categoria", "precio"].forEach(id => $(id).addEventListener("input", pintarCatalogo));
+pintarCatalogo(); pintarCarrito();
+</script>
+</body>
+</html>
